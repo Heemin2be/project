@@ -1,16 +1,16 @@
 package seasonal.repository;
 
+import org.springframework.stereotype.Repository;
+import seasonal.config.KmaApiKeyConfig;
 import seasonal.domain.ObservationRecord;
 import seasonal.enums.DataSourceType;
 import seasonal.enums.PhenologyStage;
 import seasonal.enums.PlantType;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 
 /**
  * 기상청 생물계절관측 API (PhnlgObsSvc / getPhnlgObs)로 관측 데이터를 조회합니다.
- * API 키 미설정·호출 실패·데이터 없음의 경우 CsvObservationRepository로 폴백합니다.
+ * API 키 미설정 또는 호출 실패 시 예외를 던집니다.
  *
  * <p>KMA 응답 예시:
  * <pre>
@@ -35,6 +35,7 @@ import java.util.regex.Pattern;
  * ] } } } }
  * </pre>
  */
+@Repository
 public class KmaPhenologyRepository implements ObservationRepository {
 
     private static final Logger log = Logger.getLogger(KmaPhenologyRepository.class.getName());
@@ -70,31 +71,23 @@ public class KmaPhenologyRepository implements ObservationRepository {
     private static final Map<String, PhenologyStage> STAGE_MAP;
     static {
         STAGE_MAP = new HashMap<>();
-        // 개화 계열
         STAGE_MAP.put("개화",    PhenologyStage.STARTED);
         STAGE_MAP.put("만개",    PhenologyStage.FULL_BLOOM);
         STAGE_MAP.put("낙화",    PhenologyStage.ENDED);
-        // 단풍 계열
         STAGE_MAP.put("단풍시작", PhenologyStage.STARTED);
         STAGE_MAP.put("단풍절정", PhenologyStage.PEAK);
         STAGE_MAP.put("낙엽",    PhenologyStage.ENDED);
-        // 그 외 혹시 모를 표기 변형
         STAGE_MAP.put("시작",    PhenologyStage.STARTED);
         STAGE_MAP.put("절정",    PhenologyStage.PEAK);
         STAGE_MAP.put("종료",    PhenologyStage.ENDED);
     }
 
     private final String apiKey;
-    private final ObservationRepository csvFallback;
     private final HttpClient httpClient;
 
-    public KmaPhenologyRepository(String apiKey) {
-        this(apiKey, new CsvObservationRepository());
-    }
-
-    KmaPhenologyRepository(String apiKey, ObservationRepository csvFallback) {
-        this.apiKey = apiKey == null ? "" : apiKey.trim();
-        this.csvFallback = csvFallback;
+    public KmaPhenologyRepository(KmaApiKeyConfig kmaApiKeyConfig) {
+        String key = kmaApiKeyConfig.loadApiKey();
+        this.apiKey = key == null ? "" : key.trim();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -102,11 +95,10 @@ public class KmaPhenologyRepository implements ObservationRepository {
 
     @Override
     public List<ObservationRecord> findByPlantType(PlantType plantType) {
-        // API 키 없음 → 개발용 CSV 사용
         if (apiKey.isBlank()) {
-            return csvFallback.findByPlantType(plantType);
+            throw new IllegalStateException(
+                    "KMA API 키가 설정되지 않았습니다. KMA_WEATHER_API_KEY 환경 변수를 설정하세요.");
         }
-        // API 키 있음 → API 우선, 예외 시 빈 결과 반환
         try {
             int year = LocalDate.now().getYear();
             List<ObservationRecord> records = fetchForYear(year, plantType);
@@ -114,22 +106,22 @@ public class KmaPhenologyRepository implements ObservationRepository {
                 records = fetchForYear(year - 1, plantType);
             }
             if (records.isEmpty()) {
-                // API 정상 응답이지만 데이터 없음 → CSV 폴백
-                System.out.println("[KMA 계절관측] API 데이터 없음 → CSV 사용 [" + plantType + "]");
-                return csvFallback.findByPlantType(plantType);
+                throw new IllegalStateException(
+                        "KMA API에서 " + plantType + " 관측 데이터를 찾을 수 없습니다.");
             }
             System.out.println("[KMA 계절관측] " + records.size() + "건 로드됨 [" + plantType + "]");
             return records;
+        } catch (IllegalStateException exception) {
+            throw exception;
         } catch (Exception exception) {
-            // API 오류(연결 실패, 타임아웃 등) → 빈 결과 반환
-            System.out.println("[KMA 계절관측] API 오류 → 마커 없음 [" + plantType + "]: " + exception.getMessage());
-            return List.of();
+            throw new RuntimeException(
+                    "KMA 계절관측 API 호출 실패 [" + plantType + "]: " + exception.getMessage(), exception);
         }
     }
 
     private List<ObservationRecord> fetchForYear(int year, PlantType plantType) throws Exception {
         String url = API_URL
-                + "?serviceKey=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8)
+                + "?serviceKey=" + apiKey
                 + "&pageNo=1&numOfRows=1000&dataType=JSON"
                 + "&year=" + year;
 
@@ -141,10 +133,10 @@ public class KmaPhenologyRepository implements ObservationRepository {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         int status = response.statusCode();
-        if (status != 200) {
-            System.out.println("[KMA 계절관측] HTTP " + status + " 응답 [" + year + "]");
-        }
-        return parseRecords(response.body(), plantType);
+        String body = response.body();
+        System.out.println("[KMA 계절관측] HTTP " + status + " [" + year + "] 응답 앞부분: "
+                + body.substring(0, Math.min(500, body.length())));
+        return parseRecords(body, plantType);
     }
 
     // ── JSON 파싱 ──────────────────────────────────────────────────
@@ -153,7 +145,6 @@ public class KmaPhenologyRepository implements ObservationRepository {
         List<ObservationRecord> result = new ArrayList<>();
         if (json == null || json.isBlank()) return result;
 
-        // 오류 응답 확인 ("resultCode" != "00")
         if (json.contains("\"resultCode\"") && !json.contains("\"00\"")) {
             System.out.println("[KMA 계절관측] API 오류 응답: " + json.substring(0, Math.min(300, json.length())));
             return result;
@@ -167,23 +158,19 @@ public class KmaPhenologyRepository implements ObservationRepository {
 
     private Optional<ObservationRecord> mapToRecord(Map<String, String> fields, PlantType targetPlant) {
         try {
-            // 지점 매핑 (stnId 숫자 또는 문자열)
             String stnId = fields.getOrDefault("stnId", "").trim()
-                    .replaceAll("\\.0$", ""); // 108.0 → 108
+                    .replaceAll("\\.0$", "");
             String stationCode = STATION_MAP.get(stnId);
             if (stationCode == null) return Optional.empty();
 
-            // 식물 매핑
             String plantName = firstNonEmpty(fields, "phnlgKorNm", "phnlgNm");
             PlantType plantType = PLANT_MAP.get(plantName);
             if (plantType == null || plantType != targetPlant) return Optional.empty();
 
-            // 단계 매핑
             String stageName = firstNonEmpty(fields, "stageKorNm", "stageNm", "phnlgStgNm");
             PhenologyStage stage = STAGE_MAP.get(stageName);
             if (stage == null) return Optional.empty();
 
-            // 관측일 (tm: YYYYMMDD)
             String tm = fields.getOrDefault("tm", "").trim();
             if (tm.length() != 8) return Optional.empty();
             LocalDate date = LocalDate.parse(tm, KMA_DATE);
@@ -205,10 +192,6 @@ public class KmaPhenologyRepository implements ObservationRepository {
         return "";
     }
 
-    /**
-     * JSON 응답에서 item 배열의 각 객체를 파싱합니다.
-     * 라이브러리 없이 단순 문자열 처리로 구현합니다.
-     */
     static List<Map<String, String>> parseItems(String json) {
         List<Map<String, String>> items = new ArrayList<>();
         int itemIdx = json.indexOf("\"item\"");

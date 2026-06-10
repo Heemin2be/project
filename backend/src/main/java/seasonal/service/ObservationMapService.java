@@ -1,5 +1,6 @@
 package seasonal.service;
 
+import org.springframework.stereotype.Service;
 import seasonal.domain.MapMarker;
 import seasonal.domain.MapViewModel;
 import seasonal.domain.NormalYearReference;
@@ -23,6 +24,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Service
 public class ObservationMapService {
     private final StationRepository stationRepository;
     private final ObservationRepository observationRepository;
@@ -30,20 +32,7 @@ public class ObservationMapService {
     private final ComparisonService comparisonService;
     private final StatusCalculatorResolver calculatorResolver;
     private final IconRuleRepository iconRuleRepository;
-    /** null이면 기온 조회를 생략합니다. */
     private final KmaWeatherService weatherService;
-
-    public ObservationMapService(
-            StationRepository stationRepository,
-            ObservationRepository observationRepository,
-            NormalYearRepository normalYearRepository,
-            ComparisonService comparisonService,
-            StatusCalculatorResolver calculatorResolver,
-            IconRuleRepository iconRuleRepository
-    ) {
-        this(stationRepository, observationRepository, normalYearRepository,
-                comparisonService, calculatorResolver, iconRuleRepository, null);
-    }
 
     public ObservationMapService(
             StationRepository stationRepository,
@@ -71,9 +60,7 @@ public class ObservationMapService {
                 .collect(Collectors.toMap(NormalYearReference::getStationCode, Function.identity()));
 
         // 기온 데이터 조회 (best-effort: 실패해도 빈 Map 반환)
-        Map<String, Double> temperatures = weatherService != null
-                ? weatherService.fetchTemperatures(List.copyOf(stations.values()))
-                : Map.of();
+        Map<String, Double> temperatures = weatherService.fetchTemperatures(List.copyOf(stations.values()));
 
         List<MapMarker> markers = observationRepository.findByPlantType(plantType).stream()
                 .filter(record -> !record.getObservedDate().isAfter(queryDate))

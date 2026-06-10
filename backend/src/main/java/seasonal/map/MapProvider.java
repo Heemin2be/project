@@ -1,7 +1,2 @@
+// 삭제 예정
 package seasonal.map;
-
-public interface MapProvider {
-    String getName();
-
-    String createJavaScriptApiUrl(String apiKey);
-}

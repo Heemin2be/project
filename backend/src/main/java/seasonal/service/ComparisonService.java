@@ -1,10 +1,12 @@
 package seasonal.service;
 
+import org.springframework.stereotype.Service;
 import seasonal.enums.ComparisonResultType;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
+@Service
 public class ComparisonService {
     private static final long NORMAL_RANGE_DAYS = 3;
 

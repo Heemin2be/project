@@ -1,5 +1,8 @@
 package seasonal.config;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class KmaApiKeyConfig {
     /** 시스템 환경 변수 이름 (셸에서는 점 사용 불가 → 언더스코어 변형) */
     public static final String ENV_NAME = "KMA_WEATHER_API_KEY";

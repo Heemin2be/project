@@ -1,13 +1,13 @@
 package seasonal.weather;
 
+import org.springframework.stereotype.Service;
+import seasonal.config.KmaApiKeyConfig;
 import seasonal.domain.ObservationStation;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -19,7 +19,9 @@ import java.util.logging.Logger;
 /**
  * 기상청 초단기실황 API (getUltraSrtNcst)를 호출해 각 관측소의 현재 기온(T1H)을 조회합니다.
  * 결과는 15분간 캐싱하며, API 실패 시 빈 Map을 반환해 서비스 장애가 전파되지 않도록 합니다.
+ * (기온은 보조 정보이므로 best-effort로 처리합니다.)
  */
+@Service
 public class KmaWeatherService {
 
     private static final Logger log = Logger.getLogger(KmaWeatherService.class.getName());
@@ -44,12 +46,11 @@ public class KmaWeatherService {
     private final String apiKey;
     private final HttpClient httpClient;
 
-    // 단순 시간 기반 캐시 (stationCode → temperature)
     private volatile Map<String, Double> cachedTemps = Map.of();
     private volatile LocalDateTime cacheTime = LocalDateTime.MIN;
 
-    public KmaWeatherService(String apiKey) {
-        this.apiKey = apiKey;
+    public KmaWeatherService(KmaApiKeyConfig kmaApiKeyConfig) {
+        this.apiKey = kmaApiKeyConfig.loadApiKey();
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -66,7 +67,6 @@ public class KmaWeatherService {
             return Map.of();
         }
 
-        // 캐시 유효 여부 확인
         if (LocalDateTime.now().isBefore(cacheTime.plusMinutes(CACHE_TTL_MINUTES))) {
             return cachedTemps;
         }
@@ -97,9 +97,8 @@ public class KmaWeatherService {
     }
 
     private Double callApi(String baseDate, String baseTime, int nx, int ny) throws Exception {
-        String encodedKey = URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
         String url = API_URL
-                + "?serviceKey=" + encodedKey
+                + "?serviceKey=" + apiKey
                 + "&numOfRows=10&pageNo=1&dataType=JSON"
                 + "&base_date=" + baseDate
                 + "&base_time=" + baseTime
@@ -118,24 +117,19 @@ public class KmaWeatherService {
 
     /**
      * JSON 응답에서 category=="T1H" 항목의 obsrValue를 파싱합니다.
-     * KMA API 응답 형식:
-     * { "response": { "body": { "items": { "item": [ {"category":"T1H","obsrValue":"22.5"}, ... ] } } } }
      */
     static Double parseTemperature(String json) {
         if (json == null || json.isBlank()) {
             return null;
         }
-        // T1H 항목 위치를 찾아 obsrValue를 추출
         int t1hIdx = json.indexOf("\"T1H\"");
         if (t1hIdx < 0) {
             return null;
         }
-        // T1H 항목이 속한 JSON 객체의 끝 위치
         int objEnd = json.indexOf('}', t1hIdx);
         if (objEnd < 0) {
             objEnd = json.length();
         }
-        // 해당 객체 시작 위치 (T1H 앞쪽에서 { 역방향 탐색)
         int objStart = json.lastIndexOf('{', t1hIdx);
         if (objStart < 0) {
             objStart = 0;

@@ -17,8 +17,7 @@
 ## 데이터 범위
 
 - 지도: 실제 Google Maps API
-- 식물 관측값: 과제용 샘플 CSV
-- 실시간 공공데이터 API: 미연동
+- 실시간 공공데이터 API: 연동
 
 ## 실행 및 검증
 
@@ -36,6 +35,11 @@ http://localhost:8080
 ## 제출 전 사용자 확인
 
 - Google Cloud HTTP referrer 제한: `http://localhost:8080/*`
-- Maps JavaScript API만 사용하도록 API 제한
 - Google Cloud 결제 예산 알림 설정
-- 최종 PDF와 프로젝트 폴더 압축
+
+# 수정(write by dohoon)
+- 지금 HTTP 서버로 되어있는거 스프링 부트로 변경, 프론트는 리액트로 변경
+- 필요 라이브러리는 요청할 
+- 기본값 CSV 안쓸거임(요청실패 시 오류를 띄울것) 필요한 API 있으면 요청할것
+- 설계문서 작성 필요함 구현 끝나면 역공학하여 MD문서로 정리할것
+- 기존에 필요한 API는 연동해놓은 상태

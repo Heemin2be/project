@@ -1,7 +1,2 @@
+// 이 파일은 삭제 예정입니다.
 package seasonal.repository;
-
-public class DataLoadException extends RuntimeException {
-    public DataLoadException(String message, Throwable cause) {
-        super(message, cause);
-    }
-}

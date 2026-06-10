@@ -28,7 +28,6 @@ function App() {
           setPlants(plantList);
         }
 
-        await loadClientConfig();
         await loadGoogleMap();
         if (active) {
           setGoogleReady(true);
@@ -265,26 +264,6 @@ function StationList({ markers }) {
   );
 }
 
-function loadClientConfig() {
-  if (window.GOOGLE_MAPS_API_URL !== undefined) {
-    return Promise.resolve();
-  }
-  if (window.__clientConfigPromise) {
-    return window.__clientConfigPromise;
-  }
-
-  window.__clientConfigPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "/config.js";
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("지도 설정 파일을 불러오지 못했습니다."));
-    document.head.appendChild(script);
-  });
-
-  return window.__clientConfigPromise;
-}
-
 function loadGoogleMap() {
   if (window.google?.maps?.Map) {
     return Promise.resolve();
@@ -294,12 +273,13 @@ function loadGoogleMap() {
   }
 
   window.__googleMapsPromise = new Promise((resolve, reject) => {
-    const apiUrl = window.GOOGLE_MAPS_API_URL;
-    if (!apiUrl) {
-      reject(new Error("Google Maps API 키를 환경 변수 또는 config/google-maps.properties에 넣어주세요."));
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      reject(new Error("Google Maps API 키를 frontend/.env의 VITE_GOOGLE_MAPS_API_KEY에 설정해주세요."));
       return;
     }
 
+    const apiUrl = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&libraries=marker&callback=__initGoogleMaps`;
     window.__initGoogleMaps = () => resolve();
     const script = document.createElement("script");
     script.src = apiUrl;

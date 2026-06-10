@@ -1,9 +1,11 @@
 package seasonal.calculator;
 
+import org.springframework.stereotype.Component;
 import seasonal.enums.PlantType;
 
 import java.util.List;
 
+@Component
 public class StatusCalculatorResolver {
     private final List<PhenologyStatusCalculator> calculators;
 
