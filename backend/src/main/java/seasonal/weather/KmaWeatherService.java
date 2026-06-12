@@ -5,9 +5,7 @@ import seasonal.config.KmaApiKeyConfig;
 import seasonal.domain.ObservationStation;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.nio.charset.StandardCharsets;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -100,7 +98,7 @@ public class KmaWeatherService {
 
     private Double callApi(String baseDate, String baseTime, int nx, int ny) throws Exception {
         String url = API_URL
-                + "?serviceKey=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8)
+                + "?serviceKey=" + apiKey
                 + "&numOfRows=10&pageNo=1&dataType=JSON"
                 + "&base_date=" + baseDate
                 + "&base_time=" + baseTime

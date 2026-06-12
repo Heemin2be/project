@@ -8,9 +8,7 @@ import seasonal.enums.PhenologyStage;
 import seasonal.enums.PlantType;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.nio.charset.StandardCharsets;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -28,14 +26,6 @@ import java.util.regex.Pattern;
 /**
  * 기상청 생물계절관측 API (PhnlgObsSvc / getPhnlgObs)로 관측 데이터를 조회합니다.
  * API 키 미설정 또는 호출 실패 시 예외를 던집니다.
- *
- * <p>KMA 응답 예시:
- * <pre>
- * { "response": { "body": { "items": { "item": [
- *   { "stnId":108, "stnNm":"서울", "tm":"20260403",
- *     "phnlgKorNm":"벚꽃", "stageKorNm":"개화" }, ...
- * ] } } } }
- * </pre>
  */
 @Repository
 public class KmaPhenologyRepository implements ObservationRepository {
@@ -99,7 +89,7 @@ public class KmaPhenologyRepository implements ObservationRepository {
     public List<ObservationRecord> findByPlantType(PlantType plantType) {
         if (apiKey.isBlank()) {
             throw new IllegalStateException(
-                    "KMA API 키가 설정되지 않았습니다. KMA_WEATHER_API_KEY 환경 변수를 설정하세요.");
+                    "KMA API 키가 설정되지 않았습니다. KMA_WEATHER.API_KEY를 .env에 설정하세요.");
         }
         try {
             int year = LocalDate.now().getYear();
@@ -122,8 +112,9 @@ public class KmaPhenologyRepository implements ObservationRepository {
     }
 
     private List<ObservationRecord> fetchForYear(int year, PlantType plantType) throws Exception {
+        // serviceKey는 인코딩된 인증키(data.go.kr 발급)를 그대로 사용합니다.
         String url = API_URL
-                + "?serviceKey=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8)
+                + "?serviceKey=" + apiKey
                 + "&pageNo=1&numOfRows=1000&dataType=JSON"
                 + "&year=" + year;
 
@@ -134,10 +125,9 @@ public class KmaPhenologyRepository implements ObservationRepository {
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        int status = response.statusCode();
         String body = response.body();
-        System.out.println("[KMA 계절관측] HTTP " + status + " [" + year + "] 응답 앞부분: "
-                + body.substring(0, Math.min(500, body.length())));
+        System.out.println("[KMA 계절관측] HTTP " + response.statusCode() + " [" + year + "] "
+                + body.substring(0, Math.min(300, body.length())));
         return parseRecords(body, plantType);
     }
 
