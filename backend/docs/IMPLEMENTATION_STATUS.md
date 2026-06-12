@@ -2,44 +2,56 @@
 
 ## 완료
 
-- Java `HttpServer` 기반 웹 서버
-- Google Maps JavaScript API 연동
-- `AdvancedMarkerElement` 기반 관측지점 마커
-- 식물 및 날짜 조회 API
-- CSV 기반 관측지점, 관측기록, 평년값 저장
-- Repository, Service, enum, 예외 처리
+### 백엔드 (Spring Boot 3.4.1)
+
+- `@SpringBootApplication` 진입점 (`SeasonalApplication`)
+- `@RestController` API 엔드포인트 통합 (`/api/plants`, `/api/map`)
+- Vite dev server(5173/4173) CORS 허용 (`CorsConfig`)
+- 400/500 JSON 오류 응답 (`GlobalExceptionHandler`)
+- record DTO (`PlantResponse`, `MarkerResponse`, `MapViewResponse`)
+- 서비스/레포지토리/설정 클래스 Spring 어노테이션 적용
 - 추상 상태 계산기와 개화형/단풍형 상속 구조
-- 8개 패키지, 26개 클래스, 7개 인터페이스, 5개 enum
-- Google Maps 키 외부 설정 및 `.gitignore` 처리
-- 단위/API 테스트
-- 테스트 클래스 6개, 테스트 케이스 10개 통과
+- KMA 생물계절관측 API 연동 (`KmaPhenologyRepository`) — API 실패 시 예외 throw
+- KMA 초단기실황 기온 API 연동 (`KmaWeatherService`, 15분 캐싱)
+- API 키 `.env` 파일 및 환경변수로 외부 설정 (`KmaApiKeyConfig`)
+- 단위/API 테스트 (테스트 클래스 6개, 테스트 케이스 10개)
 
-## 데이터 범위
+### 프론트엔드 (React + Vite)
 
-- 지도: 실제 Google Maps API
-- 실시간 공공데이터 API: 연동
+- Google Maps JavaScript API (`AdvancedMarkerElement`) 연동
+- Google Maps 키 `VITE_GOOGLE_MAPS_API_KEY` 환경변수로 분리
+- 식물 선택 / 날짜 조회 / 관측 지점 목록 UI
+- `frontend/.env.example` 제공
+
+### 제거된 항목
+
+- CSV 기반 관측 데이터 (`CsvObservationRepository`, `CsvReader`, `DataLoadException`)
+- 백엔드 내장 UI (`resources/web/`, `/config.js` 엔드포인트)
+- 지도 투영 패키지 (`seasonal/map/`)
+- Google Maps API 키 백엔드 설정 (`ApiKeyConfig`)
+
+## 데이터 소스
+
+| 데이터 | 소스 |
+|--------|------|
+| 식물 관측 기록 | 기상청 생물계절관측 API (PhnlgObsSvc) |
+| 현재 기온 | 기상청 초단기실황 API (VilageFcstInfoService_2.0) |
+| 관측소 좌표 / 평년값 | 하드코딩 (7개 관측소) |
+| 지도 | Google Maps JavaScript API |
 
 ## 실행 및 검증
 
 ```bash
 ./gradlew test
-./gradlew run
+./gradlew bootRun
 ```
 
-브라우저:
+프론트엔드:
 
-```text
-http://localhost:8080
+```bash
+cd frontend && npm run dev   # http://localhost:5173
 ```
 
-## 제출 전 사용자 확인
+## 남은 작업
 
-- Google Cloud HTTP referrer 제한: `http://localhost:8080/*`
-- Google Cloud 결제 예산 알림 설정
-
-# 수정(write by dohoon)
-- 지금 HTTP 서버로 되어있는거 스프링 부트로 변경, 프론트는 리액트로 변경
-- 필요 라이브러리는 요청할 
-- 기본값 CSV 안쓸거임(요청실패 시 오류를 띄울것) 필요한 API 있으면 요청할것
-- 설계문서 작성 필요함 구현 끝나면 역공학하여 MD문서로 정리할것
-- 기존에 필요한 API는 연동해놓은 상태
+- 구현 완료 후 역공학하여 설계 MD 문서 작성

@@ -8,7 +8,9 @@ import seasonal.enums.PhenologyStage;
 import seasonal.enums.PlantType;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -121,7 +123,7 @@ public class KmaPhenologyRepository implements ObservationRepository {
 
     private List<ObservationRecord> fetchForYear(int year, PlantType plantType) throws Exception {
         String url = API_URL
-                + "?serviceKey=" + apiKey
+                + "?serviceKey=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8)
                 + "&pageNo=1&numOfRows=1000&dataType=JSON"
                 + "&year=" + year;
 
