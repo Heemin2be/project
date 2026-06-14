@@ -70,8 +70,7 @@ public class SeasonalController {
                 marker.getComparison().getDisplayName(),
                 marker.getSourceType().name(),
                 marker.getSourceType().getDisplayName(),
-                marker.getObservedDate().toString(),
-                marker.getTemperature()
+                marker.getObservedDate().toString()
         );
     }
 }

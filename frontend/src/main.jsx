@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 const DEFAULT_PLANT = "CHERRY_BLOSSOM";
-const DEFAULT_DATE = "2026-04-06";
+const DEFAULT_DATE = new Date().toISOString().slice(0, 10);
 
 function App() {
   const [plants, setPlants] = useState([]);
@@ -224,6 +224,15 @@ function MapWorkspace({ mapElementRef, viewModel, loading, error, googleReady })
       <div className="map-stage">
         <div id="map" ref={mapElementRef} role="img" aria-label="한국 관측 지도">
           {!googleReady && <div className="map-message">{error || "Google 지도를 준비 중입니다"}</div>}
+          {googleReady && viewModel && viewModel.markers.length === 0 && (
+            <div className="map-empty-overlay">
+              <div className="map-empty-box">
+                <span className="map-empty-icon">🌿</span>
+                <strong>관측 기록 없음</strong>
+                <span>{viewModel.queryDate} 기준 {viewModel.plantName} 관측 데이터가 없습니다</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -254,9 +263,6 @@ function StationList({ markers }) {
             {marker.address}
             <br />
             관측일 {marker.observedDate} · 평년 대비 {marker.comparisonName} · {marker.sourceName}
-            {marker.temperature != null && (
-              <> · <span className="temperature-badge">🌡 {marker.temperature.toFixed(1)}℃</span></>
-            )}
           </div>
         </article>
       ))}
@@ -333,16 +339,13 @@ function renderGoogleMarkers(map, markerStore, infoWindow, markers) {
 }
 
 function markerContent(marker) {
-  const tempLine = marker.temperature != null
-    ? `<br>현재 기온 ${escapeHtml(marker.temperature.toFixed(1))}℃`
-    : "";
   return `
     <div class="google-popup">
       <div class="popup-title">${escapeHtml(marker.stationName)} · ${escapeHtml(marker.stageName)}</div>
       <div class="popup-meta">
         ${escapeHtml(marker.address)}<br>
         관측일 ${escapeHtml(marker.observedDate)}<br>
-        평년 대비 ${escapeHtml(marker.comparisonName)} · ${escapeHtml(marker.sourceName)}${tempLine}
+        평년 대비 ${escapeHtml(marker.comparisonName)} · ${escapeHtml(marker.sourceName)}
       </div>
     </div>
   `;

@@ -15,7 +15,10 @@ public class ComparisonService {
             return ComparisonResultType.UNKNOWN;
         }
 
-        long difference = ChronoUnit.DAYS.between(normalDate, observedDate);
+        // 연도가 다를 수 있으므로 (평년 기준일은 2026 고정, 과거 조회는 2025 등)
+        // normalDate를 observedDate의 연도로 정규화해 월/일 기준으로만 비교
+        LocalDate normalDateNormalized = normalDate.withYear(observedDate.getYear());
+        long difference = ChronoUnit.DAYS.between(normalDateNormalized, observedDate);
         if (difference < -NORMAL_RANGE_DAYS) {
             return ComparisonResultType.EARLY;
         }

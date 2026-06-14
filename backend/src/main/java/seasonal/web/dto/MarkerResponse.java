@@ -13,7 +13,6 @@ public record MarkerResponse(
         String comparisonName,
         String sourceType,
         String sourceName,
-        String observedDate,
-        Double temperature
+        String observedDate
 ) {
 }

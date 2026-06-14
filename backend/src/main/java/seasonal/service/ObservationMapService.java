@@ -15,7 +15,6 @@ import seasonal.enums.PlantType;
 import seasonal.repository.NormalYearRepository;
 import seasonal.repository.ObservationRepository;
 import seasonal.repository.StationRepository;
-import seasonal.weather.KmaWeatherService;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -32,7 +31,6 @@ public class ObservationMapService {
     private final ComparisonService comparisonService;
     private final StatusCalculatorResolver calculatorResolver;
     private final IconRuleRepository iconRuleRepository;
-    private final KmaWeatherService weatherService;
 
     public ObservationMapService(
             StationRepository stationRepository,
@@ -40,8 +38,7 @@ public class ObservationMapService {
             NormalYearRepository normalYearRepository,
             ComparisonService comparisonService,
             StatusCalculatorResolver calculatorResolver,
-            IconRuleRepository iconRuleRepository,
-            KmaWeatherService weatherService
+            IconRuleRepository iconRuleRepository
     ) {
         this.stationRepository = stationRepository;
         this.observationRepository = observationRepository;
@@ -49,7 +46,6 @@ public class ObservationMapService {
         this.comparisonService = comparisonService;
         this.calculatorResolver = calculatorResolver;
         this.iconRuleRepository = iconRuleRepository;
-        this.weatherService = weatherService;
     }
 
     public MapViewModel createMapView(PlantType plantType, LocalDate queryDate) {
@@ -59,15 +55,12 @@ public class ObservationMapService {
         Map<String, NormalYearReference> normalYears = normalYearRepository.findByPlantType(plantType).stream()
                 .collect(Collectors.toMap(NormalYearReference::getStationCode, Function.identity()));
 
-        // 기온 데이터 조회 (best-effort: 실패해도 빈 Map 반환)
-        Map<String, Double> temperatures = weatherService.fetchTemperatures(List.copyOf(stations.values()));
-
-        List<MapMarker> markers = observationRepository.findByPlantType(plantType).stream()
+        List<MapMarker> markers = observationRepository.findByPlantType(plantType, queryDate).stream()
                 .filter(record -> !record.getObservedDate().isAfter(queryDate))
                 .collect(Collectors.groupingBy(ObservationRecord::getStationCode))
                 .entrySet()
                 .stream()
-                .map(entry -> latestRecordMarker(entry.getValue(), stations, normalYears, queryDate, temperatures))
+                .map(entry -> latestRecordMarker(entry.getValue(), stations, normalYears, queryDate))
                 .sorted(Comparator.comparing(marker -> marker.getStation().getName()))
                 .toList();
 
@@ -78,8 +71,7 @@ public class ObservationMapService {
             List<ObservationRecord> records,
             Map<String, ObservationStation> stations,
             Map<String, NormalYearReference> normalYears,
-            LocalDate queryDate,
-            Map<String, Double> temperatures
+            LocalDate queryDate
     ) {
         ObservationRecord latest = records.stream()
                 .max(Comparator.comparing(ObservationRecord::getObservedDate))
@@ -102,8 +94,7 @@ public class ObservationMapService {
                 comparison,
                 latest.getSourceType(),
                 latest.getObservedDate(),
-                iconRuleRepository.findColor(latest.getPlantType(), stage),
-                temperatures.get(station.getStationCode())
+                iconRuleRepository.findColor(latest.getPlantType(), stage)
         );
     }
 }
